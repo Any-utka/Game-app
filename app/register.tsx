@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../src/theme/theme';
 import registerUser from '../src/data/users';
 import { useRouter } from 'expo-router';
 import { useUser, User } from '../src/context/UserContext';

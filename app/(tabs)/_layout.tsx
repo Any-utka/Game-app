@@ -1,7 +1,6 @@
 // app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
 import { UserProvider } from '../../src/context/UserContext';
-import { theme } from '../../src/theme/theme';
 import { MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 
 export default function TabLayout() {
