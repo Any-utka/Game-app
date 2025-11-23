@@ -1,39 +1,59 @@
 // src/data/users.tsx
+import { getDB, hash } from '../data/db';
 import { RegisterData } from '../types/User';
 
-type StoredUser = {
+export type UserDB = {
+  id: number;
   name: string;
   email: string;
-  password: string;
   avatar?: string;
+  isGuest: boolean;
 };
 
-// временное хранилище пользователей в памяти
-const users: StoredUser[] = [
-  {
-    name: 'DemoUser',
-    email: 'demo@gameflix.com',
-    password: '123456',
-    avatar: 'https://i.ibb.co/XXY/demo-avatar.png',
-  },
-];
-
-// функция регистрации нового пользователя
+// Регистрация нового пользователя
 const registerUser = async (data: RegisterData): Promise<boolean> => {
-  const exists = users.some(user => user.email === data.email);
-  if (exists) return false; // уже есть такой email
+  const db = await getDB();
 
-  users.push({
-    ...data,
-    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}`,
-  });
+  // Проверяем, есть ли уже такой email
+  const existing = await db.getFirstAsync(
+    'SELECT id FROM users WHERE email = ?;',
+    [data.email]
+  );
+
+  if (existing) return false;
+
+  await db.runAsync(
+    'INSERT INTO users (name, email, password, avatar) VALUES (?, ?, ?, ?);',
+    [
+      data.name,
+      data.email,
+      hash(data.password),
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}`
+    ]
+  );
+
   return true;
 };
 
-// функция логина
-export const loginUser = async (email: string, password: string): Promise<StoredUser | null> => {
-  const user = users.find(u => u.email === email && u.password === password);
-  return user || null;
+// Логин пользователя
+export const loginUser = async (email: string, password: string): Promise<UserDB | null> => {
+  const db = await getDB();
+  const hashed = hash(password);
+
+  const row = await db.getFirstAsync(
+    'SELECT id, name, email, avatar FROM users WHERE email = ? AND password = ?;',
+    [email, hashed]
+  );
+
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    avatar: row.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.name)}`,
+    isGuest: false
+  };
 };
 
 export default registerUser;

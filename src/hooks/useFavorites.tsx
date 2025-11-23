@@ -1,63 +1,84 @@
-// src/hooks/useFavorites.tsx
+// src/hooks/useFavorites.ts
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Game } from './infoGames';
-import { User } from '../types/User';
+import { Game } from './useGames';
+import { User } from '../context/UserContext';
 
 const FAVORITES_KEY_PREFIX = 'favorites_';
 
 export const useFavorites = (user: User | null) => {
-  const [favorites, setFavorites] = useState<Game[]>([]);
-
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const storageKey = user && !user.isGuest && user.email ? `${FAVORITES_KEY_PREFIX}${user.email}` : null;
 
+  // Подгрузка избранного при изменении пользователя
   useEffect(() => {
-    if (!storageKey) return;
+    if (!user || user.isGuest || !storageKey) {
+      setFavoriteIds([]);
+      return;
+    }
 
     const loadFavorites = async () => {
       try {
         const stored = await AsyncStorage.getItem(storageKey);
-        setFavorites(stored ? JSON.parse(stored) : []);
+        setFavoriteIds(stored ? JSON.parse(stored) : []);
       } catch (error) {
         console.error('Failed to load favorites:', error);
+        setFavoriteIds([]);
       }
     };
 
     loadFavorites();
-  }, [storageKey]);
+  }, [user, storageKey]);
 
-  const saveFavorites = useCallback(async (newFavorites: Game[]) => {
-    if (!storageKey) return;
-    try {
-      await AsyncStorage.setItem(storageKey, JSON.stringify(newFavorites));
-    } catch (error) {
-      console.error('Failed to save favorites:', error);
-    }
-  }, [storageKey]);
+  // Сохранение изменений в AsyncStorage
+  const saveFavorites = useCallback(
+    async (ids: number[]) => {
+      if (!storageKey) return;
+      try {
+        await AsyncStorage.setItem(storageKey, JSON.stringify(ids));
+      } catch (error) {
+        console.error('Failed to save favorites:', error);
+      }
+    },
+    [storageKey]
+  );
 
-  const addFavorite = useCallback((game: Game) => {
-    if (!storageKey) return; // гости не могут добавлять
-    setFavorites(prev => {
-      const exists = prev.some(g => g.id === game.id);
-      if (exists) return prev; // не добавляем дубликаты
-      const newFavorites = [...prev, game];
-      saveFavorites(newFavorites);
-      return newFavorites;
-    });
-  }, [saveFavorites, storageKey]);
+  const addFavorite = useCallback(
+    (id: number) => {
+      if (!user || user.isGuest) return;
+      setFavoriteIds(prev => {
+        if (prev.includes(id)) return prev;
+        const updated = [...prev, id];
+        saveFavorites(updated);
+        return updated;
+      });
+    },
+    [user, saveFavorites]
+  );
 
-  const removeFavorite = useCallback((gameId: number) => {
-    if (!storageKey) return; // гости не могут удалять
-    setFavorites(prev => {
-      const newFavorites = prev.filter(g => g.id !== gameId);
-      saveFavorites(newFavorites);
-      return newFavorites;
-    });
-  }, [saveFavorites, storageKey]);
+  const removeFavorite = useCallback(
+    (id: number) => {
+      if (!user || user.isGuest) return;
+      setFavoriteIds(prev => {
+        const updated = prev.filter(favId => favId !== id);
+        saveFavorites(updated);
+        return updated;
+      });
+    },
+    [user, saveFavorites]
+  );
 
-  const isFavorite = useCallback((gameId: number) => {
-    return favorites.some(g => g.id === gameId);
-  }, [favorites]);
+  const isFavorite = useCallback(
+    (id: number) => {
+      return favoriteIds.includes(id);
+    },
+    [favoriteIds]
+  );
 
-  return { favorites, addFavorite, removeFavorite, isFavorite };
+  return {
+    favoriteIds,
+    addFavorite,
+    removeFavorite,
+    isFavorite,
+  };
 };

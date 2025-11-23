@@ -1,13 +1,13 @@
-// app/AuthScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
 import { useUser, User } from '../../src/context/UserContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { loginUser } from '../../src/data/users';
+import { theme } from '../../src/theme/theme';
 
 export default function AuthScreen() {
-  const { user, setUser, loginGuest } = useUser();
+  const { user, setUser } = useUser();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -56,7 +56,7 @@ export default function AuthScreen() {
 
     setUser(loggedUser);
     Alert.alert('Успех', `Добро пожаловать, ${loggedUser.name}!`);
-    router.replace('/'); // редирект на главный экран
+    router.replace('/');
   };
 
   const handleGuestLogin = () => {
@@ -98,19 +98,9 @@ export default function AuthScreen() {
           onChangeText={setPassword}
           secureTextEntry={!showPassword}
         />
-        <Animated.View
-          style={{
-            position: 'absolute',
-            right: 12,
-            transform: [{ scale: eyeScale }],
-          }}
-        >
+        <Animated.View style={{ position: 'absolute', right: 12, transform: [{ scale: eyeScale }] }}>
           <TouchableOpacity onPress={togglePassword}>
-            <Ionicons
-              name={showPassword ? 'eye-off' : 'eye'}
-              size={24}
-              color="#ff00ff"
-            />
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color="#ff00ff" />
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -133,7 +123,7 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1f',
+    backgroundColor: theme.colors.background,
     justifyContent: 'center',
     paddingHorizontal: 20,
   },

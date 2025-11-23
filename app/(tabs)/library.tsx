@@ -1,30 +1,74 @@
 // app/(tabs)/library.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { useGames } from '../../src/hooks/infoGames';
+import React, { useState } from 'react';
+import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
+import { theme } from '../../src/theme/theme';
+import { useGames } from '../../src/hooks/useGames';
 import { useUser } from '../../src/context/UserContext';
+import { useFocusEffect } from 'expo-router';
+import { setupDatabase, getDB } from '../../src/data/db';
 
 export default function LibraryScreen() {
-  const { user } = useUser(); // Получаем реального пользователя
-  const { games, favorites: globalFavorites, toggleFav, loading } = useGames(user); // Передаем пользователя
-
+  const { user } = useUser();
+  const [dbReady, setDbReady] = useState(false);
   const [favorites, setFavorites] = useState<number[]>([]);
 
-  useEffect(() => {
-    setFavorites(globalFavorites);
-  }, [globalFavorites]);
+  // Инициализация БД и загрузка избранного при каждом фокусе
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
 
-  const favoriteGames = games.filter(game => favorites.includes(game.id));
+      const initDBAndLoadFavorites = async () => {
+        try {
+          await setupDatabase();
+          if (!isActive) return;
+          setDbReady(true);
 
-  if (!user) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>Пожалуйста, войдите в аккаунт</Text>
-      </View>
+          if (!user) {
+            setFavorites([]);
+            return;
+          }
+
+          const db = await getDB();
+          const userRow = await db.getFirstAsync('SELECT id FROM users WHERE email = ?;', [user.email]);
+          if (!userRow) {
+            setFavorites([]);
+            return;
+          }
+
+          const favRes = await db.getAllAsync('SELECT gameId FROM favorites WHERE userId = ?;', [userRow.id]);
+          if (isActive) setFavorites(favRes.map((f: any) => f.gameId));
+        } catch (err) {
+          console.error('Ошибка инициализации БД или загрузки избранного:', err);
+        }
+      };
+
+      initDBAndLoadFavorites();
+      return () => { isActive = false; };
+    }, [user])
+  );
+
+  const { games, toggleFav, loading } = useGames(user, dbReady);
+  const favoriteGames = games.filter((game) => favorites.includes(game.id));
+
+  const handleToggleFav = async (id: number) => {
+    if (!user) {
+      Alert.alert('Ошибка', 'Для изменения избранного нужно войти в профиль');
+      return;
+    }
+
+    // Оптимистично обновляем UI
+    setFavorites((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
     );
-  }
 
-  if (loading) {
+    try {
+      await toggleFav(id);
+    } catch (err) {
+      console.error('Ошибка при toggleFav:', err);
+    }
+  };
+
+  if (!dbReady || loading) {
     return (
       <View style={styles.container}>
         <Text style={styles.emptyText}>Загрузка...</Text>
@@ -32,26 +76,24 @@ export default function LibraryScreen() {
     );
   }
 
-  const handleToggleFav = (id: number) => {
-    toggleFav(id); // Сохраняет в AsyncStorage и обновляет состояние
-  };
-
   return (
     <View style={styles.container}>
       {favoriteGames.length === 0 ? (
-        <Text style={styles.emptyText}>Нет понравившихся игр</Text>
+        <Text style={styles.emptyText}>
+          {user ? 'Нет понравившихся игр' : 'Войдите в профиль, чтобы видеть избранные игры'}
+        </Text>
       ) : (
         <FlatList
           data={favoriteGames}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
-            <View style={styles.movieItem}>
+            <View style={styles.gameItem}>
               <Image source={{ uri: item.poster }} style={styles.poster} />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.genres}>{item.genres.join(', ')}</Text>
                 <TouchableOpacity onPress={() => handleToggleFav(item.id)}>
-                  <Text style={styles.remove}>Удалить 🔥</Text>
+                  <Text style={styles.remove}>Удалить из библиотеки ❤️</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -63,24 +105,11 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#0f0f1f' },
-  movieItem: {
-    flexDirection: 'row',
-    backgroundColor: '#111122',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#00fff7',
-    shadowColor: '#00fff7',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-  },
+  container: { flex: 1, padding: 16, backgroundColor: theme.colors.background },
+  gameItem: { flexDirection: 'row', backgroundColor: '#1f1f2b', padding: 12, borderRadius: 12, marginBottom: 12, alignItems: 'center' },
   poster: { width: 80, height: 120, borderRadius: 8 },
-  title: { color: '#00fff7', fontSize: 18, fontWeight: 'bold', textShadowColor: '#00fff7', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6 },
-  genres: { color: '#66fff7', marginTop: 4, fontSize: 14 },
-  remove: { color: '#ff0055', marginTop: 8, fontWeight: 'bold', textShadowColor: '#ff0055', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 4 },
-  emptyText: { color: '#66fff7', textAlign: 'center', marginTop: 32, fontSize: 16 },
+  title: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  genres: { color: theme.colors.muted, marginTop: 4 },
+  remove: { color: 'red', marginTop: 8, fontWeight: 'bold' },
+  emptyText: { color: theme.colors.muted, textAlign: 'center', marginTop: 32, fontSize: 16 },
 });

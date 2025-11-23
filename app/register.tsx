@@ -1,4 +1,3 @@
-// app/register.tsx
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +5,7 @@ import registerUser from '../src/data/users';
 import { useRouter } from 'expo-router';
 import { useUser, User } from '../src/context/UserContext';
 import { RegisterData } from '../src/types/User';
+import { theme } from '../src/theme/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -38,20 +38,21 @@ export default function RegisterScreen() {
     const data: RegisterData = { name, email, password };
     const success = await registerUser(data);
 
-    if (success) {
-      const newUser: User = {
-        name,
-        email,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
-        isGuest: false,
-      };
-      setUser(newUser);
-
-      Alert.alert('Успех', 'Регистрация прошла успешно!');
-      router.replace('/authScreen');
-    } else {
+    if (!success) {
       Alert.alert('Ошибка', 'Пользователь с таким email уже существует');
+      return;
     }
+
+    const newUser: User = {
+      name,
+      email,
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
+      isGuest: false,
+    };
+    setUser(newUser);
+
+    Alert.alert('Успех', 'Регистрация прошла успешно!');
+    router.replace('/authScreen');
   };
 
   return (
@@ -88,11 +89,7 @@ export default function RegisterScreen() {
         />
         <Animated.View style={styles.eyeIcon}>
           <TouchableOpacity onPress={togglePassword}>
-            <Ionicons
-              name={showPassword ? 'eye-off' : 'eye'}
-              size={24}
-              color="#ff55aa"
-            />
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color="#ff55aa" />
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -111,7 +108,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    backgroundColor: '#0f0f1f',
+    backgroundColor: theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,

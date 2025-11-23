@@ -1,3 +1,4 @@
+// src/context/UserContext.tsx
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 // 🔹 Тип пользователя для контекста

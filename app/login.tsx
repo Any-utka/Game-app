@@ -1,3 +1,4 @@
+// app/login.tsx
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { theme } from '../src/theme/theme';
@@ -14,7 +15,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (user) {
-      router.replace('/(tabs)/index');
+      router.replace('(tabs)');
     }
   }, [user]);
 

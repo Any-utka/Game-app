@@ -1,33 +1,51 @@
 // app/(tabs)/index.tsx
-import React from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useGames } from '../../src/hooks/infoGames';
+import { useGames } from '../../src/hooks/useGames';
 import GameCard from '../../src/components/GameList';
 import { useUser } from '../../src/context/UserContext';
+import { setupDatabase } from '../../src/data/db';
+import { theme } from '../../src/theme/theme';
 
 export default function CatalogScreen() {
   const { user } = useUser();
-  const { games, favorites, toggleFav, loading } = useGames(user);
+  const [dbReady, setDbReady] = useState(false);
 
+  // Инициализация базы
+  useEffect(() => {
+    const initDB = async () => {
+      await setupDatabase();
+      setDbReady(true);
+    };
+    initDB();
+  }, []);
+
+  const { games, favorites, toggleFav, loading } = useGames(user, dbReady);
+
+  const handleToggleFav = (id: number) => {
+    if (!user) {
+      Alert.alert('Ошибка', 'Для добавления игры в избранное нужно войти в профиль');
+      return;
+    }
+    toggleFav(id);
+  };
+
+  // Пользователь не вошёл
   if (!user) {
     return (
       <View style={styles.container}>
         <Text style={styles.notice}>
-          Пожалуйста, войдите в аккаунт или используйте гостевой доступ
+          Пожалуйста, войдите в аккаунт или используйте гостевой доступ, чтобы просматривать игры
         </Text>
       </View>
     );
   }
 
-  if (loading) {
+  // База не готова или идёт загрузка
+  if (!dbReady || loading) {
     return <Text style={styles.loading}>Загрузка...</Text>;
   }
-
-  const handleToggleFav = (id: number) => {
-    if (!user || user.isGuest) return;
-    toggleFav(id);
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -50,8 +68,8 @@ export default function CatalogScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f0f1f', paddingHorizontal: 15 },
-  loading: { color: '#66fff7', textAlign: 'center', marginTop: 32, fontSize: 16 },
-  notice: { color: '#fff', textAlign: 'center', marginTop: 50, fontSize: 16 },
+  container: { flex: 1, backgroundColor: theme.colors.background, paddingHorizontal: 15 },
+  loading: { color: theme.colors.muted, textAlign: 'center', marginTop: 32 },
+  notice: { color: theme.colors.muted, textAlign: 'center', marginTop: 50, fontSize: 16 },
   listContent: { paddingBottom: 100 },
 });
